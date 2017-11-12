@@ -1,0 +1,19 @@
+{
+    "name": "serj/sortable",
+    "type": "yii2-extension",
+    "description": "Yii2 component to manage items order (sorting)",
+    "authors": [
+        {
+            "name": "Sergey Onishchenko",
+            "email": "10111282@mail.ru"
+        }
+    ],
+    "require": {
+        "php": ">=5.6.4"
+    },
+    "autoload": {
+        "psr-4": {
+            "serj\\sortable\\src\\": "src/"
+        }
+    }
+}
