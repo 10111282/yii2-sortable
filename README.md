@@ -1,10 +1,9 @@
 Sortable - Yii2 component to maintain sort field for specified db table.
 
-
 # Installation
 To import the component to your project, put the following line to the require section of your composer.json file:
 ```
-"serj/sortable": "~1.0.0",
+"serj/sortable": "~1.0.0"
 ```
 
 # Config
@@ -22,7 +21,7 @@ id  | title               | category_id | sort
 ```
 When you want to query the items in the sorted order, you must assume that items with lower sort values go first (**ASC**).
 
-To initialize component via app config, with **minimal required settings** config
+To initialize component via app config, with **minimal required settings**
 ```php
 'components' => [
     //...
@@ -62,19 +61,40 @@ $sortableCartoons = new \serj\sortable\Sortable([
 ```
 ## Usage
 
-To insert item after id:102
+To get sort value for an item to be inserted **after** id:102
 ```php
 $sortVal = \Yii::$app->sortableCartoons->getSortVal(102, 'after', 15);
 ```
-To insert before id:102
+To get sort value for an item to be inserted **before** id:102
 ```php
 $sortVal = \Yii::$app->sortableCartoons->getSortVal(102, 'before', 15);
 ```
-Then, if you use ActiveRecord, you may insert a new record
+Then, if you use ActiveRecord, you may insert a new record like this
 ```php
 (new Cartoon)->setAttributes([title => 'Some title', category_id => 15, sort => $sortVal])->save();
 ```
-If you created a new category, say category_id:16 and there are no items yet
+To get sort value for an item to be inserted **before**  all items (in terms of specific category)
+```php
+// 15 is a category_id (grpField)
+$sortVal = \Yii::$app->sortableCartoons->getSortValBeforeAll(15);
+```
+To get sort value for an item to be inserted **after**  all items (in terms of specific category)
+```php
+// 15 is a category_id (grpField)
+$sortVal = \Yii::$app->sortableCartoons->getSortValAfterAll(15);
+```
+You may need to call the function without parameter (do not pass 15) if you maintain sorting through out an entire table, not only in a specific category range (so, you do not use *grpField*). Of course you can not use the component in both ways simultaneously on the same table. If you have such a scenario, you have to have two sort columns with the component instance configured for each one respectively.
+This is applicable for all sort value getting functions mentioned above.
+
+
+If you created a new category, say *category_id*:16 and there are no items yet
 ```php
 $sortVal = \Yii::$app->sortableCartoons->getIniSortVal();
 ```
+
+If your table have a column which represents a state of a record (e.g. deleted, archived) you can specify it in the config as *deletedField*
+```php
+'deletedField' => 'is_deleted'
+```
+Thus, all tuples that have this column (is_deleted) set to *true* wont be taken in account.
+
