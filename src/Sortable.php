@@ -12,50 +12,49 @@ use yii\db\Query;
  *
  * cartoons
  *
- * id  | title               | category_id | sort
- * ----+---------------------+-------------+------
- * 100 | Winnie the pooh     | 15          | 3000
- * ----+-----------------------------------+------
- * 101 | Kolobok (The loaf)  | 15          | 1000
- * ----+---------------------+-------------+------
- * 102 | Hedgehog in the fog | 15          | 2000
- * ----+---------------------+-------------+------
+ * id |        title        | category_id | sort_inner | sort_general | archived | color 
+ *----+---------------------+-------------+------------+--------------+----------+-------
+ *  1 | Fiddlesticks        |          14 |       1000 |         7000 | t        | t
+ *  2 | Trolley Troubles,   |          14 |       2000 |         8000 | f        | f
+ *  3 | Fantasmagorie       |          14 |       3000 |         9000 | t        | f
+ *  4 | Winnie the pooh     |          15 |       3000 |         3000 | f        | t
+ *  5 | Kolobok (The loaf)  |          15 |       1000 |         2000 | f        | t
+ *  6 | Hedgehog in the fog |          15 |       2000 |         1000 | f        | t
  *
  * Items must be sorted by sort ASC. So the items with lower sort values go first.
  *
  * To initialize component via app config
  *
- * 'sortableCartoons' => [
+ * 'sortInSingleCat' => [
  *     'class' => 'serj\sortable\Sortable',
  *     'targetTable' => 'cartoons',
- *     'grpField' => 'category_id',
- *     'pkField' => 'id',
- *     'srtField' => 'sort',
+ *     'pkColumn' => 'id',
+ *     'srtColumn' => 'sort_inner',
  *     'sortGap' => 1000,
  * ]
  *
+ * 'sortThroughAllCat' => [
+ *     'class' => 'serj\sortable\Sortable',
+ *     'targetTable' => 'cartoons',
+ *     'grpColumn' => 'category_id',
+ *     'pkColumn' => 'id',
+ *     'srtColumn' => 'sort_general',
+ *     'sortGap' => 1000,
+ * ]
+ * 
  * or if you want to use it directly
  *
- * $sortableCartoons = new \serj\sortable\Sortable([
+ * $sortInSingleCat = new \serj\sortable\Sortable([
  *     'targetTable' => 'cartoons',
- *     'grpField' => 'category_id',
- *     'pkField' => 'id',
- *     'srtField' => 'sort',
+ *     'pkColumn' => 'id',
+ *     'srtColumn' => 'sort_inner',
  *     'sortGap' => 1000,
  * ]);
  *
- * To insert an item after id:102
- * $sortVal = \Yii::$app->sortableCartoons->getSortVal(102, 'after', 15);
  *
- * To insert it before id:102
- * $sortVal = \Yii::$app->sortableCartoons->getSortVal(102, 'before', 15);
- *
- * Then, if you use ActiveRecord, you may insert a new record
- * (new Cartoons)->setAttributes([title => 'Some title', category_id => 15, sort => $sortVal])->save();
- *
- * If you add a new item  (say, under category_id:16) and there are no records in the table with such $grpField yet
- * $sortVal = \Yii::$app->sortableCartoons->getIniSortVal();
- *
+ * To get sort value for an item to be inserted after id:5
+ * $sortValLocal = \Yii::$app->sortInSingleCat->getSortVal(5, 'after', 15);
+ * $sortValGeneral = \Yii::$app->sortThroughAllCat->getSortVal(5, 'after');
  *
  * Class Sortable
  * @package serj\sortable
@@ -68,38 +67,48 @@ class Sortable extends Component
     public $targetTable;
 
     /**
-     * @var string Field name for grouping field that creates a scope for items.
-     * It may be user_id or catalog_id etc.
-     * If it not specified, then all items across the entire table will be treated as in one scope.
+     * It may be, for instance user_id or catalog_id etc.
+     * If it not specified, then all items across the entire table will be treated as in one sort scope.
+     *
+     * @var string Column which groups items to sort through.
      */
-    public $grpField;
+    public $grpColumn;
 
     /**
-     * @var string Field name for primary key in the targetTable.
+     * Column name for primary key in the targetTable.
+     *
+     * @var string
      */
-    public $pkField = 'id';
+    public $pkColumn = 'id';
 
     /**
-     * @var string Field name that represents sort field in the targetTable.
+     * Column name representing a sort (or order in other words) field in the targetTable.
+     *
+     * @var string
      */
-    public $srtField = 'sort';
+    public $srtColumn = 'sort';
 
     /**
+     * It could be any integer grater than 1.
+     * The grater the number the more rare batch update for sort field will happen.
+     *
      * @var int Initial interval between sort values for nearest items.
-     * It could be any integer grater than 1. The grater number the more rare the sort field will be reset.
      */
     public $sortGap = 1000;
 
     /**
-     * Field name for deleted flag.
-     * @var bool|string
+     * Column names and its respective values to skip those records that have such values.
+     * For example it could be ['deleted' => true]
+     * So records with a status deleted set to true wont be taken in account.
+     *
+     * @var array
      */
-    public $deletedField = false;
+    public $skipColumns = [];
 
 
     /**
-     * Returns initial sort value. Use it to get sort value when you insert record for the first time in the
-     * particular scope (defined by $this->grpField)
+     * Returns initial sort value. Use it to get sort value when you insert record for the first time.
+     * It can be first record in the entire table, or in particular scope if grpColumn in use.
      *
      * @return int
      */
@@ -115,7 +124,7 @@ class Sortable extends Component
      * @param int $targetId Record id after or before which a new record supposed to be inserted.
      * @param string $position The possible options are: 'after', 'before'. Specifies how to interpret the $targetId.
      * @param null|int $groupingId Id of the grouping entity. If it not passed the $targetId will be used in a sub-query
-     * to derived groupingId value. It has sense only if $this->grpField is not null.
+     * to derived groupingId value. It has sense only if $this->grpColumn is not null.
      * @return int
      * @throws \Exception
      */
@@ -146,32 +155,32 @@ class Sortable extends Component
      */
     public function getSortValBeforeAll($groupingId = null)
     {
-        if (!$groupingId && $this->grpField) {
+        if (!$groupingId && $this->grpColumn) {
             throw new \Exception(
-                'groupingId may be omitted only when grpField is not configured.'
+                'groupingId may be omitted only when grpColumn is not configured.'
             );
         }
 
         $query = (new Query())
-            ->select([$this->pkField, $this->srtField])
+            ->select([$this->pkColumn, $this->srtColumn])
             ->from($this->targetTable)
             ->where([
                 'and',
-                $this->grpField ? ['=', $this->grpField, $groupingId] : [],
-                $this->deletedField ? ['=', $this->deletedField, false] : []
+                $this->grpColumn ? ['=', $this->grpColumn, $groupingId] : [],
+                $this->skipRowsClause()
             ]);
 
-        $query->orderBy($this->srtField);
+        $query->orderBy([$this->srtColumn => SORT_ASC]);
         $query->limit(1);
 
         $result = $query->one();
 
-        if ($result && $result[$this->srtField] == 1) {
-            $this->rebuildSortAfter($result[$this->pkField], true);
+        if ($result && $result[$this->srtColumn] == 1) {
+            $this->rebuildSortAfter($result[$this->pkColumn], true);
             $sortVal = $this->getIniSortVal();
         }
         else if ($result) {
-            $sortVal = ceil($result[$this->srtField] / 2);
+            $sortVal = ceil($result[$this->srtColumn] / 2);
         }
         else $sortVal = $this->getIniSortVal();
 
@@ -187,22 +196,22 @@ class Sortable extends Component
      */
     public function getSortValAfterAll($groupingId = null)
     {
-        if (!$groupingId && $this->grpField) {
+        if (!$groupingId && $this->grpColumn) {
             throw new \Exception(
-                'groupingId may be omitted only when grpField is not configured.'
+                'groupingId may be omitted only when grpColumn is not configured.'
             );
         }
 
         $query = (new Query())
-            ->select($this->srtField)
+            ->select($this->srtColumn)
             ->from($this->targetTable)
             ->where([
                 'and',
-                $this->grpField ? ['=', $this->grpField, $groupingId] : [],
-                $this->deletedField ? ['=', $this->deletedField, false] : []
+                $this->grpColumn ? ['=', $this->grpColumn, $groupingId] : [],
+                $this->skipRowsClause()
             ]);
 
-        $query->orderBy($this->srtField.' DESC');
+        $query->orderBy($this->srtColumn.' DESC');
         $query->limit(1);
 
         $result = $query->one();
@@ -217,10 +226,13 @@ class Sortable extends Component
     }
 
     /**
+     * Derives sort value. If it not possible (there is an internal logic of the component) to get the value then false
+     * will be returned. So no necessary data modifications happen for maintaining sort values.
+     *
      * @param int $targetId Record id after or before which a new record supposed to be inserted.
      * @param string $position The possible options are: 'after', 'before'. Specifies how to interpret the $targetId.
      * @param null|int $groupingId Id of the grouping entity. If it not passed the $targetId will be used in a sub-query
-     * to derived its value. It has sense only if $this->grpField is not null.
+     * to derived its value. It has sense only if grpColumn is configured.
      * @return bool|int Returns false if it's not possible to derive a sort value,
      * thus sort field for all items following $targetId (including $targetId itself if $position == 'before')
      * must be incremented by $this->sortGap value.
@@ -231,72 +243,75 @@ class Sortable extends Component
         if (!$position || !in_array($position, ['after', 'before'])) {
             throw new \Exception('You must specify correct position: "after" or "before".');
         }
-
+        
+        $useGrouping = $this->grpColumn && $groupingId;
         $sort = false;
-        if ($this->grpField) {
+        
+        if ($useGrouping) {
             if ($groupingId) {
                 $subQueryGroupId = $groupingId;
             }
             else {
                 $subQueryGroupId = (new Query())
-                    ->select($this->grpField)
+                    ->select($this->grpColumn)
                     ->from($this->targetTable)
-                    ->where([$this->pkField => $targetId]);
+                    ->where([$this->pkColumn => $targetId]);
             }
         }
 
         $subQuery = (new Query())
-            ->select($this->srtField)
+            ->select($this->srtColumn)
             ->from($this->targetTable)
             ->where([
                 'and',
-                $this->grpField ? ['=', $this->grpField, $subQueryGroupId] : [],
-                [$this->pkField => $targetId]
+                $useGrouping ? ['=', $this->grpColumn, $subQueryGroupId] : [],
+                [$this->pkColumn => $targetId]
             ]);
 
         $query = (new Query())
-            ->select($this->srtField)
+            ->select($this->srtColumn)
             ->from($this->targetTable)
             ->where([
                 'and',
-                $this->grpField ? ['=', $this->grpField, $subQueryGroupId] : [],
-                $position == 'after' ? ['>=', $this->srtField, $subQuery] : ['<=', $this->srtField, $subQuery],
-                $this->deletedField ? ['=', $this->deletedField, false] : []
+                $useGrouping ? ['=', $this->grpColumn, $subQueryGroupId] : [],
+                $position == 'after' ? ['>=', $this->srtColumn, $subQuery] : ['<=', $this->srtColumn, $subQuery],
+                $this->skipRowsClause()
             ]);
 
-        $query->orderBy($position == 'after' ? $this->srtField.' ASC' : $this->srtField.' DESC');
+        $query->orderBy($position == 'after' ? $this->srtColumn.' ASC' : $this->srtColumn.' DESC');
         $query->limit(2);
 
         $result = $query->all();
         $result = array_values($result);
 
         if (!count($result)) {
+            $withGrpMsg = $useGrouping ? "with {$this->grpColumn} [ {$groupingId} ]" : '';
             throw new \Exception(
-                "Record [ $targetId ] with $this->grpField [ $groupingId ] to calculate a sort value was not found."
+                "Record [ $targetId ] $withGrpMsg to calculate a sort value was not found."
             );
         }
 
         if (count($result) == 2) {
-            $sort = ceil(($result[0][$this->srtField] + $result[1][$this->srtField]) / 2);
-            if ($sort == $result[0][$this->srtField] || $sort == $result[1][$this->srtField]) $sort = false;
+            $sort = ceil(($result[0][$this->srtColumn] + $result[1][$this->srtColumn]) / 2);
+            if ($sort == $result[0][$this->srtColumn] || $sort == $result[1][$this->srtColumn]) $sort = false;
         }
         else if (count($result) == 1) {
             $sort = $position == 'after' ?
-                ceil($result[0][$this->srtField] + $this->sortGap) : ceil($result[0][$this->srtField] / 2);
-            if ($sort == $result[0][$this->srtField]) $sort = false;
+                ceil($result[0][$this->srtColumn] + $this->sortGap) : ceil($result[0][$this->srtColumn] / 2);
+            if ($sort == $result[0][$this->srtColumn]) $sort = false;
         }
 
         return $sort;
     }
 
     /**
-     * Returns an id of the item before or after $targetId, depending on $position.
+     * Returns an id of the item before or after $targetId, depending on the $position.
      * Returns false if $targetId does not exist or it's the first or last item in the list.
      *
      * @param int $targetId
      * @param string $position The possible options are: 'after', 'before'. Specifies how to interpret the $targetId.
      * @param null|int $groupingId Id of the grouping entity. If it not passed the $targetId will be used in a sub-query
-     * to derived its value. It has sense only if $this->grpField is not null.
+     * to derived its value. It has sense only if $this->grpColumn is not null.
      * @return array|bool
      * @throws \Exception
      */
@@ -306,37 +321,37 @@ class Sortable extends Component
             throw new \Exception('You must specify correct position: "after" or "before".');
         }
 
-        if ($this->grpField) {
+        if ($this->grpColumn) {
             if ($groupingId) {
                 $subQueryGroupId = $groupingId;
             }
             else {
                 $subQueryGroupId = (new Query())
-                    ->select($this->grpField)
+                    ->select($this->grpColumn)
                     ->from($this->targetTable)
-                    ->where([$this->pkField => $targetId]);
+                    ->where([$this->pkColumn => $targetId]);
             }
         }
 
         $subQuery = (new Query())
-            ->select($this->srtField)
+            ->select($this->srtColumn)
             ->from($this->targetTable)
             ->where([
                 'and',
-                $this->grpField ? ['=', $this->grpField, $subQueryGroupId] : [],
-                [$this->pkField => $targetId]
+                $this->grpColumn ? ['=', $this->grpColumn, $subQueryGroupId] : [],
+                [$this->pkColumn => $targetId]
             ]);
 
         $query = (new Query())
-            ->select([$this->pkField])
+            ->select([$this->pkColumn])
             ->from($this->targetTable)
             ->where([
                 'and',
-                $this->grpField ? ['=', $this->grpField, $subQueryGroupId] : [],
-                $position == 'after' ? ['>', $this->srtField, $subQuery] : ['<', $this->srtField, $subQuery]
+                $this->grpColumn ? ['=', $this->grpColumn, $subQueryGroupId] : [],
+                $position == 'after' ? ['>', $this->srtColumn, $subQuery] : ['<', $this->srtColumn, $subQuery]
             ]);
 
-        $query->orderBy($position == 'after' ? $this->srtField.' ASC' : $this->srtField.' DESC');
+        $query->orderBy($position == 'after' ? $this->srtColumn.' ASC' : $this->srtColumn.' DESC');
         $query->limit(1);
 
         $result = $query->scalar();
@@ -348,17 +363,17 @@ class Sortable extends Component
      * @param int $afterId
      * @param bool $includeMe True to update $afterId itself along with another rows.
      * @param null|int $groupingId Id of the grouping entity. If it not passed the $targetId will be used in a sub-query
-     * to derived its value. It has sense only if $this->grpField is not null.
+     * to derived its value. It has sense only if $this->grpColumn is not null.
      * @return int Number of rows affected by the execution.
      */
     protected function rebuildSortAfter($afterId, $includeMe = false, $groupingId = null)
     {
         $subQuerySortVal = (new Query())
-            ->select($this->srtField)
+            ->select($this->srtColumn)
             ->from($this->targetTable)
-            ->where([$this->pkField => $afterId]);
+            ->where([$this->pkColumn => $afterId]);
 
-        $useGrouping = $this->grpField && $groupingId;
+        $useGrouping = $this->grpColumn && $groupingId;
 
         if ($useGrouping) {
             if ($groupingId) {
@@ -366,22 +381,37 @@ class Sortable extends Component
             }
             else {
                 $subQueryGroupId = (new Query())
-                    ->select($this->grpField)
+                    ->select($this->grpColumn)
                     ->from($this->targetTable)
-                    ->where([$this->pkField => $afterId]);
+                    ->where([$this->pkColumn => $afterId]);
             }
         }
 
         return \Yii::$app->db->createCommand()
             ->update(
                 $this->targetTable,
-                [$this->srtField => new Expression("{$this->srtField} + {$this->sortGap}")],
+                [$this->srtColumn => new Expression("{$this->srtColumn} + {$this->sortGap}")],
                 [
                     'and',
-                    [$includeMe ? '>=' : '>', $this->srtField, $subQuerySortVal],
-                    $useGrouping ? [$this->grpField => $subQueryGroupId] : []
+                    [$includeMe ? '>=' : '>', $this->srtColumn, $subQuerySortVal],
+                    $useGrouping ? [$this->grpColumn => $subQueryGroupId] : []
                 ]
             )
             ->execute();
+    }
+
+    /**
+     * Returns a clause to be used in queries to omit rows which supposed to be skipped in accordance to config.
+     *
+     * @return array
+     */
+    protected function skipRowsClause() {
+        $skipClause = [];
+        foreach ($this->skipColumns as $cl => $val) {
+            $skipClause[] = ['<>', $cl, $val];
+        }
+        if (count($skipClause) > 1) array_unshift($skipClause, 'and');
+
+       return $skipClause;
     }
 }
