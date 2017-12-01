@@ -1,25 +1,29 @@
-Sortable - Yii2 component to maintain sort field for specified db table.
+Sortable - Yii2 component to maintain sort column in relational database table.
 
 # Installation
 To import the component to your project, put the following line to the require section of your composer.json file:
 ```
-"serj/sortable": "~1.0.0"
+"serj/sortable": "~1.1.0"
 ```
 
 # Config
 Let's assume a table of the following structure:
 ### cartoons
 ```
-id  | title               | category_id | sort
-----+---------------------+-------------+------
-100 | Winnie the pooh     | 15          | 3000
-----+-----------------------------------+------
-101 | Kolobok (The loaf)  | 15          | 1000
-----+---------------------+-------------+------
-102 | Hedgehog in the fog | 15          | 2000
-----+---------------------+-------------+------
+ id |        title        | category_id | sort_inner | sort_general | archived | color
+----+---------------------+-------------+------------+--------------+----------+-------
+  1 | Fiddlesticks        |          14 |       1000 |         7000 | t        | t
+  2 | Trolley Troubles,   |          14 |       2000 |         8000 | f        | f
+  3 | Fantasmagorie       |          14 |       3000 |         9000 | t        | f
+  4 | Winnie the pooh     |          15 |       3000 |         3000 | f        | t
+  5 | Kolobok (The loaf)  |          15 |       1000 |         2000 | f        | t
+  6 | Hedgehog in the fog |          15 |       2000 |         1000 | f        | t
+  7 | South Park          |          16 |       1000 |         4000 | f        | t
+  8 | Futurama            |          16 |       2000 |         5000 | f        | t
+  9 | Rick and Morty      |          16 |       3000 |         6000 | f        | t
+
 ```
-When you want to query the items in the sorted order, you must assume that items with lower sort values go first (**ASC**).
+When you want to query items in the sorted order, you must assume that items with lower sort values go first (**ASC**).
 
 To initialize component via app config, with **minimal required settings**
 ```php
@@ -28,73 +32,100 @@ To initialize component via app config, with **minimal required settings**
     'sortableCartoons' => [
         'class' => 'serj\sortable\Sortable',
         'targetTable' => 'cartoons',
-        'grpField' => 'category_id'
+        'srtColumn' => 'sort_inner'
     ]
 ]
 ```
-*grpField* can be omitted if you need to sort the items hrough out the entire table.
+Let's look at more interesting scenario. Our table has 2 columns to maintain items order. *sort_inner* - for sorting in bounds of a category, *sort_general* - for sorting through out the entire table.
 
-**Extended settings**
+To maintain both columns we need two instances of the component, each one for its respective column.
+
 ```php
 'components' => [
-    //...
-    'sortableCartoons' => [
+    'sortInSingleCat' => [
         'class' => 'serj\sortable\Sortable',
         'targetTable' => 'cartoons',
-        'grpField' => 'category_id',
-        'pkField' => 'id',
-        'srtField' => 'sort',
-        'sortGap' => 1000
+        'grpColumn' => 'category_id',
+        'pkColumn' => 'id',
+        'srtColumn' => 'sort_inner',
+        'skipColumns' => [
+            'archived' => true,
+            'color' => false
+        ]
+    ],
+    'sortThroughAllCat' => [
+        'class' => 'serj\sortable\Sortable',
+        'targetTable' => 'cartoons',
+        'pkColumn' => 'id',
+        'srtColumn' => 'sort_general',
+        'skipColumns' => [
+            'archived' => true,
+            'color' => false
+        ]
     ]
 ]
 ```
 
-**Or if you want to use it directly**
+Or if you want to use it directly without config
 ```php
-$sortableCartoons = new \serj\sortable\Sortable([
+$sortThroughAllCat = new \serj\sortable\Sortable([
     'targetTable' => 'cartoons',
-    'grpField' => 'category_id',
-    'pkField' => 'id',
-    'srtField' => 'sort',
-    'sortGap' => 1000,
+    'pkColumn' => 'id',
+    'srtColumn' => 'sort_general',
+    'skipColumns' => [
+        'archived' => true,
+        'color' => false
+    ]
 ]);
 ```
 ## Usage
 
-To get sort value for an item to be inserted **after** id:102
+To get sort value for an item to be inserted **after** id:5
 ```php
-$sortVal = \Yii::$app->sortableCartoons->getSortVal(102, 'after', 15);
+$sortValLocal = \Yii::$app->sortInSingleCat->getSortVal(5, 'after', 15);
+$sortValGeneral = \Yii::$app->sortThroughAllCat->getSortVal(5, 'after');
 ```
-To get sort value for an item to be inserted **before** id:102
+To get sort value for an item to be inserted **before** id:5
 ```php
-$sortVal = \Yii::$app->sortableCartoons->getSortVal(102, 'before', 15);
+$sortValLocal = \Yii::$app->sortInSingleCat->getSortVal(5, 'before', 15);
+$sortValGeneral = \Yii::$app->sortThroughAllCat->getSortVal(5, 'before');
 ```
 Then, if you use ActiveRecord, you may insert a new record like this
 ```php
-(new Cartoon)->setAttributes([title => 'Some title', category_id => 15, sort => $sortVal])->save();
+(new Cartoon)->setAttributes([
+    'title' => 'Some title',
+    'category_id' => 15,
+    'sort_local' => $sortValLocal,
+    'sort_general' => $sortValGeneral
+]) ->save();
 ```
-To get sort value for an item to be inserted **before**  all items (in terms of specific category)
+To get sort value for an item to be inserted **before**  all items
 ```php
-// 15 is a category_id (grpField)
-$sortVal = \Yii::$app->sortableCartoons->getSortValBeforeAll(15);
+// 15 is a category_id (srtColumn)
+$sortValLocal = \Yii::$app->sortInSingleCat->getSortValBeforeAll(15);
+$sortValGeneral = \Yii::$app->sortThroughAllCat->getSortValBeforeAll();
 ```
 To get sort value for an item to be inserted **after**  all items (in terms of specific category)
 ```php
-// 15 is a category_id (grpField)
-$sortVal = \Yii::$app->sortableCartoons->getSortValAfterAll(15);
+// 15 is a category_id (srtColumn)
+$sortValLocal = \Yii::$app->sortableCartoons->getSortValAfterAll(15);
+$sortValGeneral = \Yii::$app->sortThroughAllCat->getSortValAfterAll();
 ```
-You may need to call the function without parameter (do not pass 15) if you maintain sorting through out an entire table, not only in a specific category range (so, you do not use *grpField*). Of course you can not use the component in both ways simultaneously on the same table. If you have such a scenario, you have to have two sort columns with the component instance configured for each one respectively.
-This is applicable for all sort value getting functions mentioned above.
 
-
-If you created a new category, say *category_id*:16 and there are no items yet
+If you created a new category, say *category_id*:17 and there are no items yet
 ```php
-$sortVal = \Yii::$app->sortableCartoons->getIniSortVal();
+$sortValLocal = \Yii::$app->sortableCartoons->getIniSortVal();
+
+//to insert to the end of the list in terms of the entire table
+$sortValGeneral = \Yii::$app->sortThroughAllCat->getSortValAfterAll();
 ```
 
-If your table have a column which represents a state of a record (e.g. deleted, archived) you can specify it in the config as *deletedField*
+If you table have a column which represents a state of a record (e.g. deleted, archived) you can specify it in the config as *skipColumns*
 ```php
-'deletedField' => 'is_deleted'
+    'skipColumns' => [
+        'archived' => true,
+        'color' => false
+    ]
 ```
-Thus, all tuples that have this column (is_deleted) set to *true* wont be taken in account.
+Thus, all tuples that have *archived* = *true* and *color* = *false* wont be taken in account. There is a gotcha: these states must be persistent, so once set they must not be reverted back. If you switch it back and forth, then do not use this option.
 
