@@ -1,0 +1,20 @@
+# Codeception Test Suite Configuration
+#
+# Suite for unit (internal) tests.
+
+class_name: UnitTester
+modules:
+    enabled:
+        - Asserts
+        - \Helper\Unit
+        - Db:
+           dsn: 'pgsql:host=localhost;dbname=sortable_test'
+           user: 'postgres'
+           password: ''
+           dump: 'tests/_data/dump.sql'
+           populate: true
+           cleanup: true
+           reconnect: true
+
+
+
