@@ -125,9 +125,9 @@ class Sortable extends Component
             throw new \Exception('You must specify a valid position: "after" or "before".');
         }
 
-        if (!$sortVal = $this->deriveSortVal($targetId, $position, $groupingId)) {
-            $this->rebuildSortAfter($targetId, $position != 'after');
-            $sortVal = $this->deriveSortVal($targetId, $position);
+        if (false === ($sortVal = $this->deriveSortVal($targetId, $position, $groupingId))) {
+            $this->rebuildSortAfter($targetId, $position != 'after', $groupingId);
+            $sortVal = $this->deriveSortVal($targetId, $position, $groupingId);
 
             if (!$sortVal) throw new \Exception(
                 'Sort value can not be derived. Check if all sort values in the same scope are unique.'
@@ -358,7 +358,9 @@ class Sortable extends Component
             ->from($this->targetTable)
             ->where([$this->pkField => $afterId]);
 
-        if ($this->grpField) {
+        $useGrouping = $this->grpField && $groupingId;
+
+        if ($useGrouping) {
             if ($groupingId) {
                 $subQueryGroupId = $groupingId;
             }
@@ -377,7 +379,7 @@ class Sortable extends Component
                 [
                     'and',
                     [$includeMe ? '>=' : '>', $this->srtField, $subQuerySortVal],
-                    $this->grpField ? [$this->grpField => $subQueryGroupId] : []
+                    $useGrouping ? [$this->grpField => $subQueryGroupId] : []
                 ]
             )
             ->execute();
