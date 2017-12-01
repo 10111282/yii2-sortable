@@ -373,7 +373,7 @@ class Sortable extends Component
         return \Yii::$app->db->createCommand()
             ->update(
                 $this->targetTable,
-                [$this->srtField => new Expression("sort +".$this->sortGap)],
+                [$this->srtField => new Expression("{$this->srtField} + {$this->sortGap}")],
                 [
                     'and',
                     [$includeMe ? '>=' : '>', $this->srtField, $subQuerySortVal],
