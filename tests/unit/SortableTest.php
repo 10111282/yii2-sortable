@@ -18,6 +18,8 @@ class SortableTest extends \Codeception\Test\Unit
     /**
      * @var serj\sortable\Sortable
      */
+     
+    
     protected $sortThroughAllCat;
 
     protected function _before()
@@ -39,20 +41,22 @@ class SortableTest extends \Codeception\Test\Unit
                     'grpColumn' => 'category_id',
                     'pkColumn' => 'id',
                     'srtColumn' => 'sort_local',
-                    'skipColumns' => [
+                    'skipRows' => [
                         'archived' => true,
                         'color' => false
-                    ]
+                    ],
+                    'dbComponentId' => 'db'
                 ],
                 'sortThroughAllCat' => [
                     'class' => 'serj\sortable\Sortable',
                     'targetTable' => 'cartoons',
                     'pkColumn' => 'id',
                     'srtColumn' => 'sort_general',
-                    'skipColumns' => [
+                    'skipRows' => [
                         'archived' => true,
                         'color' => false
-                    ]
+                    ],
+                    'dbComponentId' => 'db'
                 ]
             ]    
         ];

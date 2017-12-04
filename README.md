@@ -1,16 +1,21 @@
-Sortable - Yii2 component to maintain sort column in relational database table.
+# Sortable - Yii2 component to maintain sort column in relational database table.
 
-# Installation
+## Installation
 To import the component to your project, put the following line to the require section of your composer.json file:
+```js
+"serj/sortable": "~1.2.0"
 ```
-"serj/sortable": "~1.1.0"
+or run the command
+```bash
+$ composer require serj/sortable "~1.2.0"
 ```
 
-# Config
+
+## Config
 Let's assume a table of the following structure:
 ### cartoons
 ```
- id |        title        | category_id | sort_inner | sort_general | archived | color
+ id |        title        | category_id | sort_local | sort_general | archived | color
 ----+---------------------+-------------+------------+--------------+----------+-------
   1 | Fiddlesticks        |          14 |       1000 |         7000 | t        | t
   2 | Trolley Troubles,   |          14 |       2000 |         8000 | f        | f
@@ -48,7 +53,7 @@ To maintain both columns we need two instances of the component, each one for it
         'grpColumn' => 'category_id',
         'pkColumn' => 'id',
         'srtColumn' => 'sort_inner',
-        'skipColumns' => [
+        'skipRows' => [
             'archived' => true,
             'color' => false
         ]
@@ -58,7 +63,7 @@ To maintain both columns we need two instances of the component, each one for it
         'targetTable' => 'cartoons',
         'pkColumn' => 'id',
         'srtColumn' => 'sort_general',
-        'skipColumns' => [
+        'skipRows' => [
             'archived' => true,
             'color' => false
         ]
@@ -72,7 +77,7 @@ $sortThroughAllCat = new \serj\sortable\Sortable([
     'targetTable' => 'cartoons',
     'pkColumn' => 'id',
     'srtColumn' => 'sort_general',
-    'skipColumns' => [
+    'skipRows' => [
         'archived' => true,
         'color' => false
     ]
@@ -97,7 +102,7 @@ Then, if you use ActiveRecord, you may insert a new record like this
     'category_id' => 15,
     'sort_local' => $sortValLocal,
     'sort_general' => $sortValGeneral
-]) ->save();
+])->save();
 ```
 To get sort value for an item to be inserted **before**  all items
 ```php
@@ -120,12 +125,34 @@ $sortValLocal = \Yii::$app->sortableCartoons->getIniSortVal();
 $sortValGeneral = \Yii::$app->sortThroughAllCat->getSortValAfterAll();
 ```
 
-If you table have a column which represents a state of a record (e.g. deleted, archived) you can specify it in the config as *skipColumns*
+If you table have a column or columns representing a state of a record (e.g. deleted, archived) which means you no longer use those records, or you just what to ignore them, you can specify it in the  config as *skipRows*. In this particular case those are *archived*, *color*.
 ```php
-    'skipColumns' => [
+    'skipRows' => [
         'archived' => true,
         'color' => false
     ]
 ```
 Thus, all tuples that have *archived* = *true* and *color* = *false* wont be taken in account. There is a gotcha: these states must be persistent, so once set they must not be reverted back. If you switch it back and forth, then do not use this option.
 
+## Alternative database connection
+By default the component uses *\Yii::$app->db*, if you have to use another connection
+```php
+$connection = new \yii\db\Connection($config)
+\Yii::$app->sortableCartoons->setDb($connection);
+```
+Or set it up in the component config
+```php
+'components' => [
+    'anotherDb' => [
+        'class' => 'yii\db\Connection',
+        ...
+    ],
+    ...
+    'sortInSingleCat' => [
+        'class' => 'serj\sortable\Sortable',
+        'dbComponentId' => 'anotherDb'
+        ...
+    ],
+    ...
+]
+```

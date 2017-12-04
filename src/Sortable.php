@@ -2,11 +2,12 @@
 namespace serj\sortable;
 
 use yii\base\Component;
+use yii\db\Connection;
 use yii\db\Expression;
 use yii\db\Query;
 
 /**
- * Component aimed to maintain sort field for specified db table.
+ * Sortable - Yii2 component to maintain sort column in relational database table.
  *
  * Let's assume table of the following structure:
  *
@@ -41,15 +42,7 @@ use yii\db\Query;
  *     'srtColumn' => 'sort_general',
  *     'sortGap' => 1000,
  * ]
- * 
- * or if you want to use it directly
  *
- * $sortInSingleCat = new \serj\sortable\Sortable([
- *     'targetTable' => 'cartoons',
- *     'pkColumn' => 'id',
- *     'srtColumn' => 'sort_inner',
- *     'sortGap' => 1000,
- * ]);
  *
  *
  * To get sort value for an item to be inserted after id:5
@@ -103,8 +96,39 @@ class Sortable extends Component
      *
      * @var array
      */
-    public $skipColumns = [];
+    public $skipRows = [];
 
+    /**
+     * Component name responsible for database connection.
+     * Should be one that's configured in application config file.
+     * 
+     * @var sting
+     */
+    public $dbComponentId = 'db';
+
+    /**
+     * @var Connection
+     */
+    protected $db;
+
+
+    /**
+     * @inheritdoc
+     */
+    function init() 
+    {
+        parent::init();
+
+        $this->db = \Yii::$app->{$this->dbComponentId};
+    }
+
+    /**
+     * @param Connection $db
+     */
+    public function setDb(Connection $db) 
+    {
+        $this->db = $db;
+    }
 
     /**
      * Returns initial sort value. Use it to get sort value when you insert record for the first time.
@@ -168,12 +192,11 @@ class Sortable extends Component
                 'and',
                 $this->grpColumn ? ['=', $this->grpColumn, $groupingId] : [],
                 $this->skipRowsClause()
-            ]);
+            ])
+            ->orderBy([$this->srtColumn => SORT_ASC])
+            ->limit(1);
 
-        $query->orderBy([$this->srtColumn => SORT_ASC]);
-        $query->limit(1);
-
-        $result = $query->one();
+        $result = $query->one($this->db);
 
         if ($result && $result[$this->srtColumn] == 1) {
             $this->rebuildSortAfter($result[$this->pkColumn], true);
@@ -209,12 +232,11 @@ class Sortable extends Component
                 'and',
                 $this->grpColumn ? ['=', $this->grpColumn, $groupingId] : [],
                 $this->skipRowsClause()
-            ]);
+            ])
+            ->orderBy($this->srtColumn.' DESC')
+            ->limit(1);
 
-        $query->orderBy($this->srtColumn.' DESC');
-        $query->limit(1);
-
-        $result = $query->one();
+        $result = $query->one($this->db);
 
         if ($result) {
             $result = array_values($result);
@@ -276,12 +298,12 @@ class Sortable extends Component
                 $useGrouping ? ['=', $this->grpColumn, $subQueryGroupId] : [],
                 $position == 'after' ? ['>=', $this->srtColumn, $subQuery] : ['<=', $this->srtColumn, $subQuery],
                 $this->skipRowsClause()
-            ]);
+            ])
+            ->orderBy($position == 'after' ? $this->srtColumn.' ASC' : $this->srtColumn.' DESC')
+            ->limit(2);
+        
 
-        $query->orderBy($position == 'after' ? $this->srtColumn.' ASC' : $this->srtColumn.' DESC');
-        $query->limit(2);
-
-        $result = $query->all();
+        $result = $query->all($this->db);
         $result = array_values($result);
 
         if (!count($result)) {
@@ -349,12 +371,11 @@ class Sortable extends Component
                 'and',
                 $this->grpColumn ? ['=', $this->grpColumn, $subQueryGroupId] : [],
                 $position == 'after' ? ['>', $this->srtColumn, $subQuery] : ['<', $this->srtColumn, $subQuery]
-            ]);
+            ])
+            ->orderBy($position == 'after' ? $this->srtColumn.' ASC' : $this->srtColumn.' DESC')
+            ->limit(1);
 
-        $query->orderBy($position == 'after' ? $this->srtColumn.' ASC' : $this->srtColumn.' DESC');
-        $query->limit(1);
-
-        $result = $query->scalar();
+        $result = $query->scalar($this->db);
 
         return $result;
     }
@@ -387,7 +408,7 @@ class Sortable extends Component
             }
         }
 
-        return \Yii::$app->db->createCommand()
+        return $this->db->createCommand()
             ->update(
                 $this->targetTable,
                 [$this->srtColumn => new Expression("{$this->srtColumn} + {$this->sortGap}")],
@@ -407,7 +428,7 @@ class Sortable extends Component
      */
     protected function skipRowsClause() {
         $skipClause = [];
-        foreach ($this->skipColumns as $cl => $val) {
+        foreach ($this->skipRows as $cl => $val) {
             $skipClause[] = ['<>', $cl, $val];
         }
         if (count($skipClause) > 1) array_unshift($skipClause, 'and');

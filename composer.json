@@ -11,7 +11,8 @@
         "component",
         "sort",
         "items order",
-        "database sort"
+        "database sort",
+        "namage sort column"
     ],
     "authors": [
         {
@@ -21,7 +22,7 @@
     ],
     "require": {
         "php": ">=5.6.4",
-        "yiisoft/yii2": "~2.0.11"
+        "yiisoft/yii2": "~2.0.6"
     },
     "autoload": {
         "psr-4": {
