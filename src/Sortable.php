@@ -174,7 +174,7 @@ class Sortable extends Component
      * Derives a sort value for a record to be inserted before all items.
      *
      * @param null|int $groupingId
-     * @return float|int
+     * @return int
      * @throws \Exception
      */
     public function getSortValBeforeAll($groupingId = null)
@@ -207,14 +207,14 @@ class Sortable extends Component
         }
         else $sortVal = $this->getIniSortVal();
 
-        return $sortVal;
+        return (int)$sortVal;
     }
 
     /**
      * Derives a sort value for a record to be inserted after all items.
      * 
      * @param null|int $groupingId
-     * @return float|int
+     * @return int
      * @throws \Exception
      */
     public function getSortValAfterAll($groupingId = null)
@@ -244,7 +244,7 @@ class Sortable extends Component
         }
         else $sortVal = $this->getIniSortVal();
 
-        return $sortVal;
+        return (int)$sortVal;
     }
 
     /**
@@ -265,11 +265,10 @@ class Sortable extends Component
         if (!$position || !in_array($position, ['after', 'before'])) {
             throw new \Exception('You must specify correct position: "after" or "before".');
         }
-        
-        $useGrouping = $this->grpColumn && $groupingId;
+
         $sort = false;
         
-        if ($useGrouping) {
+        if ($this->grpColumn) {
             if ($groupingId !== null) {
                 $subQueryGroupId = $groupingId;
             }
@@ -286,7 +285,7 @@ class Sortable extends Component
             ->from($this->targetTable)
             ->where([
                 'and',
-                $useGrouping ? ['=', $this->grpColumn, $subQueryGroupId] : [],
+                $this->grpColumn ? ['=', $this->grpColumn, $subQueryGroupId] : [],
                 [$this->pkColumn => $targetId]
             ]);
 
@@ -295,13 +294,12 @@ class Sortable extends Component
             ->from($this->targetTable)
             ->where([
                 'and',
-                $useGrouping ? ['=', $this->grpColumn, $subQueryGroupId] : [],
+                $this->grpColumn ? ['=', $this->grpColumn, $subQueryGroupId] : [],
                 $position == 'after' ? ['>=', $this->srtColumn, $subQuery] : ['<=', $this->srtColumn, $subQuery],
                 $this->skipRowsClause()
             ])
             ->orderBy($position == 'after' ? $this->srtColumn.' ASC' : $this->srtColumn.' DESC')
             ->limit(2);
-        
 
         $result = $query->all($this->db);
         $result = array_values($result);
@@ -314,12 +312,12 @@ class Sortable extends Component
         }
 
         if (count($result) == 2) {
-            $sort = ceil(($result[0][$this->srtColumn] + $result[1][$this->srtColumn]) / 2);
+            $sort = (int)ceil(($result[0][$this->srtColumn] + $result[1][$this->srtColumn]) / 2);
             if ($sort == $result[0][$this->srtColumn] || $sort == $result[1][$this->srtColumn]) $sort = false;
         }
         else if (count($result) == 1) {
             $sort = $position == 'after' ?
-                ceil($result[0][$this->srtColumn] + $this->sortGap) : ceil($result[0][$this->srtColumn] / 2);
+                (int)ceil($result[0][$this->srtColumn] + $this->sortGap) : (int)ceil($result[0][$this->srtColumn] / 2);
             if ($sort == $result[0][$this->srtColumn]) $sort = false;
         }
 
@@ -383,9 +381,10 @@ class Sortable extends Component
      /**
      * @param int $afterId
      * @param bool $includeMe True to update $afterId itself along with another rows.
-     * @param null|int $groupingId Id of the grouping entity. If it not passed the $targetId will be used in a sub-query
+     * @param null|int $groupingId Id of the grouping entity. If it not passed the $targetId will be used in a sub-query.
      * to derived its value. It has sense only if $this->grpColumn is not null.
      * @return int Number of rows affected by the execution.
+     * @throws \yii\db\Exception
      */
     protected function rebuildSortAfter($afterId, $includeMe = false, $groupingId = null)
     {
@@ -394,9 +393,7 @@ class Sortable extends Component
             ->from($this->targetTable)
             ->where([$this->pkColumn => $afterId]);
 
-        $useGrouping = $this->grpColumn && $groupingId;
-
-        if ($useGrouping !== null) {
+        if ($this->grpColumn) {
             if ($groupingId) {
                 $subQueryGroupId = $groupingId;
             }
@@ -415,7 +412,7 @@ class Sortable extends Component
                 [
                     'and',
                     [$includeMe ? '>=' : '>', $this->srtColumn, $subQuerySortVal],
-                    $useGrouping ? [$this->grpColumn => $subQueryGroupId] : []
+                    $this->grpColumn ? [$this->grpColumn => $subQueryGroupId] : []
                 ]
             )
             ->execute();

@@ -94,7 +94,10 @@ class SortableTest extends \Codeception\Test\Unit
     {
         $categoryId = 15;
         $sortVal = $this->sortInSingleCat->getSortValBeforeAll($categoryId);
+        $this->assertTrue($sortVal < 1000);
 
+        $categoryId = 0;
+        $sortVal = $this->sortInSingleCat->getSortValBeforeAll($categoryId);
         $this->assertTrue($sortVal < 1000);
     }
     
@@ -114,11 +117,15 @@ class SortableTest extends \Codeception\Test\Unit
      *
      * @throws Exception
      */
-    public function testBelowAboveAll()
+    public function testBelowAll()
     {
         $categoryId = 15;
         $sortVal = $this->sortInSingleCat->getSortValAfterAll($categoryId);
         $this->assertTrue($sortVal > 3000);
+
+        $categoryId = 0;
+        $sortVal = $this->sortInSingleCat->getSortValAfterAll($categoryId);
+        $this->assertTrue($sortVal === 2000);
     }
 
     /**
@@ -143,6 +150,14 @@ class SortableTest extends \Codeception\Test\Unit
         $recordId = 5;
         $sortVal = $this->sortInSingleCat->getSortVal($recordId, 'after', $categoryId);
         $this->assertTrue($sortVal > 1000 && $sortVal < 2000);
+
+        $sortVal = $this->sortInSingleCat->getSortVal($recordId, 'after');
+        $this->assertTrue($sortVal > 1000 && $sortVal < 2000);
+
+        $categoryId = 0;
+        $recordId = 10;
+        $sortVal = $this->sortInSingleCat->getSortVal($recordId, 'after', $categoryId);
+        $this->assertTrue($sortVal === 2000);
     }
 
     /**
@@ -166,6 +181,14 @@ class SortableTest extends \Codeception\Test\Unit
     {
         $categoryId = 15;
         $recordId = 5;
+        $sortVal = $this->sortInSingleCat->getSortVal($recordId, 'before', $categoryId);
+        $this->assertTrue($sortVal < 1000);
+
+        $sortVal = $this->sortInSingleCat->getSortVal($recordId, 'before');
+        $this->assertTrue($sortVal < 1000);
+
+        $categoryId = 0;
+        $recordId = 10;
         $sortVal = $this->sortInSingleCat->getSortVal($recordId, 'before', $categoryId);
         $this->assertTrue($sortVal < 1000);
     }

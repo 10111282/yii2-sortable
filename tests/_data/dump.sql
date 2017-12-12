@@ -20,7 +20,9 @@ INSERT INTO cartoons(title, category_id, sort_local, sort_general, archived, col
 
 ('South Park', 16, 1000, 4000, false, true),
 ('Futurama', 16, 2000, 5000, false, true),
-('Rick and Morty', 16, 3000, 6000, false, true);
+('Rick and Morty', 16, 3000, 6000, false, true),
+
+('Zero', 0, 1000, 9000, false, true);
 
 
 
