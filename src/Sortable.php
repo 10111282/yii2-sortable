@@ -179,7 +179,7 @@ class Sortable extends Component
      */
     public function getSortValBeforeAll($groupingId = null)
     {
-        if (!$groupingId && $this->grpColumn) {
+        if ($groupingId === null && $this->grpColumn) {
             throw new \Exception(
                 'groupingId may be omitted only when grpColumn is not configured.'
             );
@@ -219,7 +219,7 @@ class Sortable extends Component
      */
     public function getSortValAfterAll($groupingId = null)
     {
-        if (!$groupingId && $this->grpColumn) {
+        if (!$groupingId === null && $this->grpColumn) {
             throw new \Exception(
                 'groupingId may be omitted only when grpColumn is not configured.'
             );
@@ -270,7 +270,7 @@ class Sortable extends Component
         $sort = false;
         
         if ($useGrouping) {
-            if ($groupingId) {
+            if ($groupingId !== null) {
                 $subQueryGroupId = $groupingId;
             }
             else {
@@ -344,7 +344,7 @@ class Sortable extends Component
         }
 
         if ($this->grpColumn) {
-            if ($groupingId) {
+            if ($groupingId !== null) {
                 $subQueryGroupId = $groupingId;
             }
             else {
@@ -396,7 +396,7 @@ class Sortable extends Component
 
         $useGrouping = $this->grpColumn && $groupingId;
 
-        if ($useGrouping) {
+        if ($useGrouping !== null) {
             if ($groupingId) {
                 $subQueryGroupId = $groupingId;
             }
