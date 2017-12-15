@@ -1,4 +1,5 @@
 <?php
+
 namespace serj\sortable;
 
 use yii\base\Component;
@@ -150,7 +151,7 @@ class Sortable extends Component
      * @param null|int $groupingId Id of the grouping entity. If it not passed the $targetId will be used in a sub-query
      * to derived groupingId value. It has sense only if $this->grpColumn is not null.
      * @return int
-     * @throws \Exception
+     * @throws SortableException
      */
     public function getSortVal($targetId, $position = 'after', $groupingId = null)
     {
@@ -162,7 +163,7 @@ class Sortable extends Component
             $this->rebuildSortAfter($targetId, $position != 'after', $groupingId);
             $sortVal = $this->deriveSortVal($targetId, $position, $groupingId);
 
-            if (!$sortVal) throw new \Exception(
+            if (!$sortVal) throw new SortableException(
                 'Sort value can not be derived. Check if all sort values in the same scope are unique.'
             );
         }
@@ -175,12 +176,12 @@ class Sortable extends Component
      *
      * @param null|int $groupingId
      * @return int
-     * @throws \Exception
+     * @throws SortableException
      */
     public function getSortValBeforeAll($groupingId = null)
     {
         if ($groupingId === null && $this->grpColumn) {
-            throw new \Exception(
+            throw new SortableException(
                 'groupingId may be omitted only when grpColumn is not configured.'
             );
         }
@@ -215,12 +216,12 @@ class Sortable extends Component
      * 
      * @param null|int $groupingId
      * @return int
-     * @throws \Exception
+     * @throws SortableException
      */
     public function getSortValAfterAll($groupingId = null)
     {
         if (!$groupingId === null && $this->grpColumn) {
-            throw new \Exception(
+            throw new SortableException(
                 'groupingId may be omitted only when grpColumn is not configured.'
             );
         }
@@ -258,12 +259,12 @@ class Sortable extends Component
      * @return bool|int Returns false if it's not possible to derive a sort value,
      * thus sort field for all items following $targetId (including $targetId itself if $position == 'before')
      * must be incremented by $this->sortGap value.
-     * @throws \Exception
+     * @throws SortableException
      */
     public function deriveSortVal($targetId, $position = 'after', $groupingId = null)
     {
         if (!$position || !in_array($position, ['after', 'before'])) {
-            throw new \Exception('You must specify correct position: "after" or "before".');
+            throw new SortableException('You must specify correct position: "after" or "before".');
         }
 
         $sort = false;
@@ -305,9 +306,9 @@ class Sortable extends Component
         $result = array_values($result);
 
         if (!count($result)) {
-            $withGrpMsg = $useGrouping ? "with {$this->grpColumn} [ {$groupingId} ]" : '';
-            throw new \Exception(
-                "Record [ $targetId ] $withGrpMsg to calculate a sort value was not found."
+            $withGrpMsg = $this->grpColumn ? "with spcified {$this->grpColumn}" : '';
+            throw new SortableException(
+                sprintf('Record [ %d ] %s to calculate a sort value not found', $targetId, $withGrpMsg)
             );
         }
 
@@ -333,12 +334,12 @@ class Sortable extends Component
      * @param null|int $groupingId Id of the grouping entity. If it not passed the $targetId will be used in a sub-query
      * to derived its value. It has sense only if $this->grpColumn is not null.
      * @return array|bool
-     * @throws \Exception
+     * @throws SortableException
      */
     public function getPk($targetId, $position, $groupingId = null)
     {
         if (!$position || !in_array($position, ['after', 'before'])) {
-            throw new \Exception('You must specify correct position: "after" or "before".');
+            throw new SortableException('You must specify correct position: "after" or "before".');
         }
 
         if ($this->grpColumn) {
