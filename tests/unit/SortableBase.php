@@ -3,7 +3,7 @@
 use serj\sortable\Sortable;
 
 
-class SortableTest extends \Codeception\Test\Unit
+class SortableBase extends \Codeception\Test\Unit
 {
     /**
      * @var \UnitTester
@@ -18,60 +18,17 @@ class SortableTest extends \Codeception\Test\Unit
     /**
      * @var serj\sortable\Sortable
      */
-     
-    
     protected $sortThroughAllCat;
 
-    protected function _before()
-    {
-        $config = [
-            'id' => 'test case',
-            'basePath' => dirname(dirname(__DIR__)),
-            'components' => [
-                'db' => [
-                    'class' => 'yii\db\Connection',
-                    'dsn' => "pgsql:host=localhost;dbname=sortable_test",
-                    'username' => 'postgres',
-                    'password' => '',
-                    'charset' => 'utf8',
-                ],
-                'sortInSingleCat' => [
-                    'class' => 'serj\sortable\Sortable',
-                    'targetTable' => 'cartoons',
-                    'grpColumn' => 'category_id',
-                    'pkColumn' => 'id',
-                    'srtColumn' => 'sort_local',
-                    'skipRows' => [
-                        'archived' => true,
-                        'color' => false
-                    ],
-                    'dbComponentId' => 'db'
-                ],
-                'sortThroughAllCat' => [
-                    'class' => 'serj\sortable\Sortable',
-                    'targetTable' => 'cartoons',
-                    'pkColumn' => 'id',
-                    'srtColumn' => 'sort_general',
-                    'skipRows' => [
-                        'archived' => true,
-                        'color' => false
-                    ],
-                    'dbComponentId' => 'db'
-                ]
-            ]    
-        ];
-        
-        new yii\console\Application($config);
-        
-        $this->sortInSingleCat = \Yii::$app->sortInSingleCat;
-        $this->sortThroughAllCat = \Yii::$app->sortThroughAllCat;
-    }
-    
-    
+    /**
+     * @var array
+     */
+    protected $config = [];
 
-    protected function _after()
-    {
-    }
+    /**
+     * @var string
+     */
+    protected $dbDriver = Sortable::DB_DRIVER_PG;
 
     /**
      * Getting initial sort value. Must be the same as configured.
@@ -236,31 +193,27 @@ class SortableTest extends \Codeception\Test\Unit
         $categoryId = 15;
         $targetLocalId = 5;
         $targetGeneralId = 4;
-        
+
         for ($i = 0; $i < 100; $i++) {
-            $localSrt = $this->sortInSingleCat->getSortVal($targetLocalId, 'after', $categoryId);
+            $localSrt = $this->sortInSingleCat->getSortVal($targetLocalId, 'after', null);
             $generalSrt = $this->sortThroughAllCat->getSortVal($targetGeneralId, 'after');
-            
+
             $query = "
-              INSERT INTO cartoons (title, category_id, sort_local, sort_general)
-              VALUES ('South Park - {$i}', {$categoryId}, {$localSrt}, {$generalSrt});
+              INSERT INTO cartoons (title, category_id, sort_local, sort_general, archived, color)
+              VALUES ('South Park - {$i}', {$categoryId}, {$localSrt}, {$generalSrt}, false, true);
             ";
 
-            (new \yii\db\Query())->createCommand()->setSql($query)->execute();
-            
+            $r = (new \yii\db\Query())->createCommand()->setSql($query)->execute();
+
             if ($i === 0) {
-                $firstId =  (new \yii\db\Query())->createCommand()
-                    ->setSql("SELECT currval('cartoons_id_seq')")
-                    ->queryScalar();
+                $firstId = $this->getAutoincrementVal();
             }
         }
-        
-        $lastId =  (new \yii\db\Query())->createCommand()
-            ->setSql("SELECT currval('cartoons_id_seq')")
-            ->queryScalar();
-            
+
+        $lastId = $this->getAutoincrementVal();
+
         // sort in category  
-        $this->assertTrue(6 === $this->sortInSingleCat->getPk($firstId, 'after', $categoryId));        
+        $this->assertTrue(6 === $this->sortInSingleCat->getPk($firstId, 'after', $categoryId));
         $this->assertTrue($targetLocalId === $this->sortInSingleCat->getPk($lastId, 'before', $categoryId));  
         
         // general sort      
@@ -284,22 +237,18 @@ class SortableTest extends \Codeception\Test\Unit
             $generalSrt = $this->sortThroughAllCat->getSortVal($targetGeneralId, 'before');
             
             $query = "
-              INSERT INTO cartoons (title, category_id, sort_local, sort_general)
-              VALUES ('South Park - {$i}', {$categoryId}, {$localSrt}, {$generalSrt});
+              INSERT INTO cartoons (title, category_id, sort_local, sort_general, archived, color)
+              VALUES ('South Park - {$i}', {$categoryId}, {$localSrt}, {$generalSrt}, false, true);
             ";
 
             (new \yii\db\Query())->createCommand()->setSql($query)->execute();
             
             if ($i === 0) {
-                $firstId =  (new \yii\db\Query())->createCommand()
-                    ->setSql("SELECT currval('cartoons_id_seq')")
-                    ->queryScalar();
+                $firstId = $this->getAutoincrementVal();
             }
         }
         
-        $lastId =  (new \yii\db\Query())->createCommand()
-            ->setSql("SELECT currval('cartoons_id_seq')")
-            ->queryScalar();
+        $lastId = $this->getAutoincrementVal();
             
         // sort in terms of one category
         $this->assertTrue(5 === $this->sortInSingleCat->getPk($firstId, 'before', $categoryId));        
@@ -308,5 +257,24 @@ class SortableTest extends \Codeception\Test\Unit
         // sort over the entire table
         $this->assertTrue(5 == $this->sortThroughAllCat->getPk($firstId, 'before'));        
         $this->assertTrue($targetGeneralId === $this->sortThroughAllCat->getPk($lastId, 'after'));  
+    }
+
+    protected function getAutoincrementVal() {
+        if ($this->dbDriver === Sortable::DB_DRIVER_PG) {
+            $id = (new \yii\db\Query())->createCommand()
+                ->setSql("SELECT currval('cartoons_id_seq')")
+                ->queryScalar();
+        } else {
+             $id = (int)(new \yii\db\Query())->createCommand()
+                ->setSql("
+                    SELECT `AUTO_INCREMENT`
+                    FROM  INFORMATION_SCHEMA.TABLES
+                    WHERE TABLE_NAME   = 'cartoons'
+                ")
+                ->queryScalar();
+             $id -= 1; //mysql returns next autoincrement value, not the last one
+        }
+
+        return $id;
     }
 }

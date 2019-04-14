@@ -156,3 +156,16 @@ Or set it up in the component config
     ...
 ]
 ```
+
+## Using with MySql database (by default it's Postgres)
+
+```php
+'components' => [
+    'sortInSingleCat' => [
+        'class' => 'serj\sortable\Sortable',
+        'databaseDriver' => serj\sortable\Sortable::DB_DRIVER_MYSQL
+        ...
+    ],
+    ...
+]
+```

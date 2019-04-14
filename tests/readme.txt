@@ -8,6 +8,15 @@ In order to run tests:
    - tests/unit.suite.yml
    - tests/unit/SortableTest.php
 
-
 - in terminal change direcroty to Sortable
-- run the comman: codecept run unit SortableTest
+- run the comman: php vendor/bin/codecept run unit SortablePostgersTest
+
+
+Running tests with Docker
+
+- Install docker and docker-compose
+- in terminal change direcroty to Sortable
+- build containers: docker-compose run -d --build
+- enter the container: docker exec -it sortable-php-fpm bash
+- run MySql test:  php vendor/bin/codecept run unit SortableMySqlTest
+- run Postgres test:  php vendor/bin/codecept run unit SortablePostgersTest

@@ -8,9 +8,17 @@ modules:
         - Asserts
         - \Helper\Unit
         - Db:
-           dsn: 'pgsql:host=localhost;dbname=sortable_test'
+           dsn: 'pgsql:host=sortable-postgres;dbname=sortable_test'
            user: 'postgres'
-           password: ''
+           password: 'secret'
+           dump: 'tests/_data/dump.sql'
+           populate: true
+           cleanup: true
+           reconnect: true
+        - \Helper\DbMySql:
+           dsn: 'mysql:host=sortable-mysql;dbname=sortable_test'
+           user: 'tester'
+           password: 'secret'
            dump: 'tests/_data/dump.sql'
            populate: true
            cleanup: true

@@ -55,6 +55,9 @@ use yii\db\Query;
  */
 class Sortable extends Component
 {
+    const DB_DRIVER_PG = 'postgres';
+    const DB_DRIVER_MYSQL = 'mysql';
+
     /**
      * @var string Database table name that holds sortable records.
      */
@@ -106,6 +109,14 @@ class Sortable extends Component
      * @var sting
      */
     public $dbComponentId = 'db';
+
+    /**
+     * Database, by default it's Postgres. You need to specify MySql for other databases,
+     * since Postgres and MySql have a few syntax differences
+     *
+     * @var string
+     */
+    public $databaseDriver = self::DB_DRIVER_PG;
 
     /**
      * @var Connection
@@ -268,7 +279,7 @@ class Sortable extends Component
         }
 
         $sort = false;
-        
+
         if ($this->grpColumn) {
             if ($groupingId !== null) {
                 $subQueryGroupId = $groupingId;
@@ -333,7 +344,7 @@ class Sortable extends Component
      * @param string $position The possible options are: 'after', 'before'. Specifies how to interpret the $targetId.
      * @param null|int $groupingId Id of the grouping entity. If it not passed the $targetId will be used in a sub-query
      * to derived its value. It has sense only if $this->grpColumn is not null.
-     * @return array|bool
+     * @return integer|bool
      * @throws SortableException
      */
     public function getPk($targetId, $position, $groupingId = null)
@@ -376,7 +387,7 @@ class Sortable extends Component
 
         $result = $query->scalar($this->db);
 
-        return $result;
+        return is_bool($result) ? $result : (int)$result;
     }
 
      /**
@@ -389,20 +400,37 @@ class Sortable extends Component
      */
     protected function rebuildSortAfter($afterId, $includeMe = false, $groupingId = null)
     {
-        $subQuerySortVal = (new Query())
-            ->select($this->srtColumn)
-            ->from($this->targetTable)
-            ->where([$this->pkColumn => $afterId]);
+        if ($this->databaseDriver === self::DB_DRIVER_PG) {
+            $subQuerySortVal = (new Query())
+                ->select($this->srtColumn)
+                ->from($this->targetTable)
+                ->where([$this->pkColumn => $afterId]);
+        }
+        else {
+            $subQuerySortVal = (new Query())->select($this->srtColumn.' as sort_column')
+                ->from($this->targetTable)
+                ->where([$this->pkColumn => $afterId])
+                ->one()['sort_column'];
+        }
 
         if ($this->grpColumn) {
             if ($groupingId) {
                 $subQueryGroupId = $groupingId;
             }
             else {
-                $subQueryGroupId = (new Query())
-                    ->select($this->grpColumn)
-                    ->from($this->targetTable)
-                    ->where([$this->pkColumn => $afterId]);
+                if ($this->databaseDriver === self::DB_DRIVER_PG) {
+                    $subQueryGroupId = (new Query())
+                        ->select($this->grpColumn)
+                        ->from($this->targetTable)
+                        ->where([$this->pkColumn => $afterId]);
+                }
+                else {
+                    $subQueryGroupId = (new Query())
+                        ->select($this->grpColumn.' as group_column')
+                        ->from($this->targetTable)
+                        ->where([$this->pkColumn => $afterId])
+                        ->one()['group_column'];
+                }
             }
         }
 

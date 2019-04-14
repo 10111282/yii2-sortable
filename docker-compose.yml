@@ -1,0 +1,52 @@
+version: '3'
+services:
+    mysql:
+      image: mysql:5.7
+      container_name: sortable-mysql
+      restart: always
+      ports:
+        - '3310:3306'
+      environment:
+        MYSQL_USER: tester
+        MYSQL_PASSWORD: secret
+        MYSQL_DATABASE: sortable_test
+        MYSQL_ROOT_PASSWORD: secret
+      volumes:
+        - ./storage/mysql:/var/lib/mysql
+      networks:
+        - database
+
+    postgres:
+      image: postgres
+      container_name: sortable-postgres
+      restart: always
+      volumes:
+        - ./storage/postgres:/var/lib/postgresql/data
+      environment:
+        POSTGRES_USER: postgres
+        POSTGRES_DB: sortable_test
+        POSTGRES_PASSWORD: secret
+      networks:
+        - database
+
+    php-fpm:
+      build: 
+        context: .
+        dockerfile: Dockerfile
+        args:
+          - XDEBUG_REMOTE_HOST=${XDEBUG_REMOTE_HOST}
+          - XDEBUG_REMOTE_PORT=${XDEBUG_REMOTE_PORT}
+      container_name: sortable-php-fpm
+      ports:
+       - "9002:9000"
+      volumes:
+       - .:/var/www/html
+      links:
+        - mysql
+      networks:
+        - server
+        - database
+
+networks:
+   database:
+   server:

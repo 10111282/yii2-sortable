@@ -28,5 +28,8 @@
         "psr-4": {
             "serj\\sortable\\": "src/"
         }
+    },
+    "require-dev": {
+        "codeception/codeception": "^2.5"
     }
 }
